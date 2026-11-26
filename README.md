@@ -1,5 +1,7 @@
 # bb-rag – Fragen an die „Baltischen Briefe“
 
+[![CI](https://github.com/ab1601/bb-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/ab1601/bb-rag/actions/workflows/ci.yml)
+
 Lokales **RAG- und Agentensystem** über die Zeitschrift *Baltische Briefe* (deutschbaltische Diaspora):
 48 Ausgaben aus den Jahrgängen 1949, 1950, 1988, 1991 und 2004, rund 290.000 Wörter, OCR-Text mit
 automatisch erkannten Orts- und Personennamen.
