@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: bb-rag-config, namespace: bb-rag}
+data:
+  OLLAMA_BASE_URL: http://ollama:11434
+  BB_LLM_MODEL: llama3.1:8b
+  BB_EMBED_DEVICE: cpu
+  BB_CORPUS: /data/research-corpus.json
+  BB_STORAGE: /app/storage
+  HF_HUB_OFFLINE: "0"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: bb-rag, namespace: bb-rag, labels: {app: bb-rag}}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: bb-rag}}
+  template:
+    metadata: {labels: {app: bb-rag}}
+    spec:
+      containers:
+        - name: app
+          image: bb-rag:latest            # lokal gebaut: docker build -t bb-rag:latest .
+          imagePullPolicy: IfNotPresent
+          ports: [{containerPort: 7860}]
+          envFrom: [{configMapRef: {name: bb-rag-config}}]
+          resources:
+            requests: {cpu: 500m, memory: 2Gi}
+            limits: {memory: 4Gi}
+          readinessProbe:
+            httpGet: {path: /, port: 7860}
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /, port: 7860}
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          volumeMounts:
+            - {name: corpus, mountPath: /data, readOnly: true}
+            - {name: index, mountPath: /app/storage}
+            - {name: hf, mountPath: /models}
+      volumes:
+        # Korpus vom Rechner einbinden (Docker Desktop / kind). Der Pfad muss ggf. angepasst werden.
+        - name: corpus
+          hostPath: {path: /PFAD/ZU/baltische-briefe-portal/data, type: Directory}   # anpassen
+        - name: index
+          persistentVolumeClaim: {claimName: bb-index}
+        - name: hf
+          persistentVolumeClaim: {claimName: hf-models}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: bb-rag, namespace: bb-rag}
+spec:
+  selector: {app: bb-rag}
+  ports: [{port: 7860, targetPort: 7860}]

@@ -1,0 +1,131 @@
+{
+ "description": "Erfundenes Testkorpus für bb-rag (keine Texte der Baltischen Briefe).",
+ "fictional": false,
+ "places": [
+  {
+   "id": "loc-1",
+   "name": "Reval",
+   "lat": 59.437,
+   "lon": 24.745,
+   "status": "unverified",
+   "candidates": [
+    {
+     "lat": 59.437,
+     "lon": 24.745,
+     "wikidata": "Q1770",
+     "description": "test capital"
+    }
+   ]
+  },
+  {
+   "id": "loc-2",
+   "name": "Tallinn",
+   "lat": 59.437,
+   "lon": 24.745,
+   "status": "unverified",
+   "candidates": [
+    {
+     "lat": 59.437,
+     "lon": 24.745,
+     "wikidata": "Q1770",
+     "description": "test capital"
+    }
+   ]
+  },
+  {
+   "id": "loc-3",
+   "name": "Reval/Tallinn",
+   "lat": null,
+   "lon": null,
+   "status": "missing",
+   "candidates": []
+  },
+  {
+   "id": "loc-4",
+   "name": "Hamburg",
+   "lat": 53.55,
+   "lon": 9.99,
+   "status": "unverified",
+   "candidates": [
+    {
+     "lat": 53.55,
+     "lon": 9.99,
+     "wikidata": "Q1055",
+     "description": "test city"
+    }
+   ]
+  },
+  {
+   "id": "loc-5",
+   "name": "Musterstadt",
+   "lat": null,
+   "lon": null,
+   "status": "ambiguous",
+   "candidates": []
+  }
+ ],
+ "documents": [
+  {
+   "id": "t_01_49",
+   "year": 1949,
+   "issue": "01",
+   "title": "Testblatt · 01/1949",
+   "text": "Die Testgemeinschaft traf sich in Hamburg zu einer ersten Versammlung. Viele Mitglieder kamen aus Reval.\n\nEin Bericht über die Schule in Musterstadt folgt in der nächsten Nummer. Ein Bericht über die Schule in Musterstadt folgt in der nächsten Nummer. Ein Bericht über die Schule in Musterstadt folgt in der nächsten Nummer. \n\nHerr Anton Beispiel sprach über Erinnerung und Zukunft.",
+   "entities": [
+    {
+     "start": 34,
+     "end": 41,
+     "type": "place",
+     "label": "Hamburg"
+    },
+    {
+     "start": 98,
+     "end": 103,
+     "type": "place",
+     "label": "Reval"
+    },
+    {
+     "start": 137,
+     "end": 148,
+     "type": "place",
+     "label": "Musterstadt"
+    },
+    {
+     "start": 332,
+     "end": 346,
+     "type": "person",
+     "label": "Anton Beispiel"
+    }
+   ],
+   "fictional": false
+  },
+  {
+   "id": "t_02_88",
+   "year": 1988,
+   "issue": "02",
+   "title": "Testblatt · 02/1988",
+   "text": "Eine Reisegruppe besuchte Tallinn, das frühere Reval/Tallinn der Erinnerung.\n\nIn Tallinn sprach die Gruppe mit Frau Berta Probe über das Stadtarchiv.",
+   "entities": [
+    {
+     "start": 26,
+     "end": 33,
+     "type": "place",
+     "label": "Tallinn"
+    },
+    {
+     "start": 47,
+     "end": 60,
+     "type": "place",
+     "label": "Reval/Tallinn"
+    },
+    {
+     "start": 116,
+     "end": 127,
+     "type": "person",
+     "label": "Berta Probe"
+    }
+   ],
+   "fictional": false
+  }
+ ]
+}

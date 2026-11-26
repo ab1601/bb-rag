@@ -1,0 +1,32 @@
+# Start:   docker compose up -d
+# Index:   docker compose run --rm app python -m bb_rag.index      (einmalig, ca. 10–15 Min. auf CPU)
+# Modell:  docker compose exec ollama ollama pull llama3.1:8b       (einmalig)
+# Chat:    http://127.0.0.1:7860
+#
+# Hinweis macOS: Docker hat keinen Zugriff auf die Apple-GPU. Schneller ist es, die Ollama-App auf dem Mac
+# zu nutzen: den Dienst "ollama" weglassen und OLLAMA_BASE_URL=http://host.docker.internal:11434 setzen.
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:7860:7860"
+    environment:
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      HF_HUB_OFFLINE: ${HF_HUB_OFFLINE:-0}
+    volumes:
+      # Korpus nur lesend aus dem Portal-Ordner einbinden
+      - ../baltische-briefe-portal/data:/data:ro
+      - ./storage:/app/storage
+      - hf-models:/models
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-models:/root/.ollama
+    # nur intern erreichbar; kein Port nach außen nötig
+
+volumes:
+  hf-models:
+  ollama-models:

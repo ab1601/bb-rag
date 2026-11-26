@@ -1,0 +1,40 @@
+# Einmalige Aufgaben – nicht in kustomization.yaml, sondern einzeln starten:
+#   kubectl apply -f k8s/jobs.yaml
+apiVersion: batch/v1
+kind: Job
+metadata: {name: pull-llm, namespace: bb-rag}
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: pull
+          image: ollama/ollama:latest
+          command: ["sh", "-c", "OLLAMA_HOST=http://ollama:11434 ollama pull llama3.1:8b"]
+---
+apiVersion: batch/v1
+kind: Job
+metadata: {name: build-index, namespace: bb-rag}
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: index
+          image: bb-rag:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "bb_rag.index"]
+          envFrom: [{configMapRef: {name: bb-rag-config}}]
+          volumeMounts:
+            - {name: corpus, mountPath: /data, readOnly: true}
+            - {name: index, mountPath: /app/storage}
+            - {name: hf, mountPath: /models}
+      volumes:
+        - name: corpus
+          hostPath: {path: /PFAD/ZU/baltische-briefe-portal/data, type: Directory}   # anpassen
+        - name: index
+          persistentVolumeClaim: {claimName: bb-index}
+        - name: hf
+          persistentVolumeClaim: {claimName: hf-models}

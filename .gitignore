@@ -1,0 +1,13 @@
+# Keine Daten und kein Index ins Repository (Rechte an den Texten ungeklärt)
+storage/
+data/
+*.chroma
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+.DS_Store
+
+# persönliche Notizen
+STAND.md

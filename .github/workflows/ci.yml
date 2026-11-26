@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      CI: "1"
+      HF_HUB_OFFLINE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - name: Abhängigkeiten (PyTorch CPU)
+        run: |
+          pip install torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements-dev.txt
+      - name: Tests (erfundenes Mini-Korpus, ohne Sprachmodell)
+        run: |
+          set -o pipefail
+          pytest -v 2>&1 | tee pytest.log || {
+            echo "::error title=pytest::$(tail -c 3500 pytest.log | tr '\n' ' ')"
+            exit 1
+          }
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Image bauen
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: bb-rag:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke-Test im Container
+        run: docker run --rm bb-rag:ci python -c "import bb_rag.agent, bb_rag.tools; print('ok')"
+
+  kubernetes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Kubernetes-Manifeste prüfen (kubeconform)
+        run: |
+          docker run --rm -v "$PWD/k8s:/k8s" ghcr.io/yannh/kubeconform:latest \
+            -strict -summary -ignore-filename-pattern kustomization /k8s

@@ -1,0 +1,21 @@
+# Persistente Volumes: Chroma-Index, Hugging-Face-Modelle (Embeddings), Ollama-Modelle
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: bb-index, namespace: bb-rag}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: {requests: {storage: 1Gi}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: hf-models, namespace: bb-rag}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: {requests: {storage: 5Gi}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: ollama-models, namespace: bb-rag}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: {requests: {storage: 10Gi}}
