@@ -111,18 +111,30 @@ def place_register(name: str, max_forms: int = 8, path: str | None = None) -> st
             f"zusammengeführt; Zuordnungen sind automatisch und ungeprüft.\n" + "\n".join(lines) + more)
 
 
-def compare_years(term: str, path: str | None = None) -> str:
-    """Häufigkeit eines Wortes je Jahrgang, absolut und je 100.000 Wörter (Jahrgänge sind unterschiedlich groß)."""
-    term = term.strip()
-    if not term:
+def split_terms(terms: str) -> list[str]:
+    """ "Reval, Tallinn" / "Reval und Tallinn" / "Reval; Tallinn" → ["Reval", "Tallinn"]"""
+    parts = re.split(r"\s*(?:,|;|\bund\b|\boder\b|\bvs\.?|\bgegen\b)\s*", terms.strip())
+    return list(dict.fromkeys(p.strip(" \"'„“") for p in parts if p.strip(" \"'„“")))
+
+
+def compare_years(terms: str, path: str | None = None) -> str:
+    """Häufigkeit eines oder mehrerer Wörter je Jahrgang als Tabelle: Treffer und Treffer je 100.000 Wörter."""
+    words = split_terms(terms or "")
+    if not words:
         return "Kein Suchbegriff angegeben."
     corpus = load_corpus(path)
-    pattern = re.compile(rf"(?<!\w){re.escape(term)}(?!\w)", re.IGNORECASE)
-    counts = Counter()
-    for d in corpus.documents:
-        counts[int(d["year"])] += len(pattern.findall(d["text"]))
-    rows = []
+    counts = {}
+    for w in words:
+        pattern = re.compile(rf"(?<!\w){re.escape(w)}(?!\w)", re.IGNORECASE)
+        counts[w] = Counter()
+        for d in corpus.documents:
+            counts[w][int(d["year"])] += len(pattern.findall(d["text"]))
+    header = "| Jahrgang | " + " | ".join(f"{w} (Treffer / je 100.000 Wörter)" for w in words) + " |"
+    lines = [header, "|---" * (len(words) + 1) + "|"]
     for y in sorted(corpus.words_per_year):
-        rate = counts[y] / corpus.words_per_year[y] * 1e5 if corpus.words_per_year[y] else 0
-        rows.append(f"- {y}: {counts[y]} Treffer, {rate:.1f} je 100.000 Wörter")
-    return f"Jahrgangsvergleich für „{term}“ (exakte Schreibweise):\n" + "\n".join(rows)
+        n = corpus.words_per_year[y]
+        cells = [f"{counts[w][y]} / {counts[w][y] / n * 1e5:.1f}" if n else "0 / 0.0" for w in words]
+        lines.append(f"| {y} | " + " | ".join(cells) + " |")
+    lines.append("| Summe | " + " | ".join(str(sum(counts[w].values())) for w in words) + " |")
+    return ("Jahrgangsvergleich (exakte Schreibweise im Volltext, auch in Doppelformen wie Reval/Tallinn). "
+            "Diese Tabelle unverändert in die Antwort übernehmen:\n" + "\n".join(lines))

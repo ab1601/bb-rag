@@ -51,3 +51,12 @@ def test_history_strips_tool_log_and_limits_turns():
     assert all("<details>" not in m.content for m in msgs)
     assert msgs[-1].content == "118 Mal."
     assert history_messages(None) == []
+
+
+def test_tables_from_tools_are_attached_once():
+    from bb_rag.agent import attach_tables
+    table_out = "Jahrgangsvergleich:\n| Jahrgang | Reval |\n|---|---|\n| 1949 | 19 / 38.8 |"
+    steps = [("compare_years", {"terms": "Reval"}, table_out), ("compare_years", {"terms": "Reval"}, table_out)]
+    text = attach_tables("Die Tabelle zeigt die Treffer.", steps)
+    assert text.count("| 1949 | 19 / 38.8 |") == 1
+    assert attach_tables("Antwort ohne Werkzeugtabelle.", [("place_register", {}, "- Reval: 118")]) == "Antwort ohne Werkzeugtabelle."

@@ -28,7 +28,9 @@ SYSTEM = (
     "Antworte auf Deutsch, knapp, und nenne die Belege (Abschnitts- oder Ausgaben-IDs wie bb_04_49#003). "
     "Weise darauf hin, dass Texte aus OCR stammen und Orte automatisch, ungeprüft zugeordnet sind. "
     "Bei Rückfragen („und bei …?“) beziehe dich auf das bisherige Gespräch und nutze erneut die Werkzeuge. "
-    "Nenne Zahlen nur, wenn sie in einem Werkzeugergebnis stehen. Meldet ein Werkzeug einen Fehler, "
+    "Bei Vergleichen mehrerer Wörter rufe compare_years EINMAL mit allen Wörtern auf, z. B. \"Reval, Tallinn\". "
+    "Übernimm Zahlen und Tabellen aus Werkzeugergebnissen wörtlich, Jahr für Jahr; fasse sie nicht frei zusammen "
+    "und behaupte nichts, was der Tabelle widerspricht. Nenne Zahlen nur, wenn sie in einem Werkzeugergebnis stehen. Meldet ein Werkzeug einen Fehler, "
     "rufe es korrigiert erneut auf, statt Zahlen zu schätzen. Lass optionale Parameter weg, wenn sie nicht gebraucht werden."
 )
 
@@ -72,13 +74,13 @@ def place_register(name: str) -> str:
     return tools.place_register(name)
 
 
-def compare_years(term: str) -> str:
-    """Vergleicht, wie häufig ein Wort in den fünf Jahrgängen vorkommt (absolut und je 100.000 Wörter).
+def compare_years(terms: str) -> str:
+    """Vergleicht, wie häufig ein oder mehrere Wörter in den fünf Jahrgängen vorkommen; liefert eine Tabelle.
 
     Args:
-        term: Wort in genauer Schreibweise, z. B. "Tallinn".
+        terms: ein Wort oder mehrere, durch Komma getrennt, z. B. "Reval, Tallinn".
     """
-    return tools.compare_years(term)
+    return tools.compare_years(terms)
 
 
 TOOLS = [FunctionTool.from_defaults(fn) for fn in (semantic_search, fulltext_search, place_register, compare_years)]
@@ -119,7 +121,23 @@ async def _run(question: str, history: list[tuple[str, str]] | None = None) -> A
         if isinstance(event, ToolCallResult):
             steps.append((event.tool_name, dict(event.tool_kwargs), str(event.tool_output)))
     response = await handler
-    return AgentAnswer(question, str(response).strip(), steps)
+    return AgentAnswer(question, attach_tables(str(response).strip(), steps), steps)
+
+
+def attach_tables(text: str, steps: list[tuple[str, dict, str]]) -> str:
+    """Tabellen aus Werkzeugergebnissen deterministisch an die Antwort hängen.
+
+    Kleine Modelle verweisen oft auf „die Tabelle“, ohne sie wiederzugeben, oder geben Zahlen falsch wieder.
+    Die Zahlen sollen deshalb nicht vom Sprachmodell abhängen, sondern direkt aus dem Werkzeug kommen.
+    """
+    tables = []
+    for _, _, output in steps:
+        table = "\n".join(line for line in output.splitlines() if line.startswith("|"))
+        if table and table not in text and table not in tables:
+            tables.append(table)
+    if not tables:
+        return text
+    return text + "\n\n" + "\n\n".join(tables) + "\n\n_Zahlen direkt aus dem Werkzeug (Volltext, automatisch erkannt)._"
 
 
 def ask(question: str, history: list[tuple[str, str]] | None = None) -> AgentAnswer:

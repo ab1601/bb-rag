@@ -20,10 +20,20 @@ Werkzeuge des Agenten (`bb_rag/agent.py`, `bb_rag/tools.py`):
 - `semantic_search(query, year, place)` – Vektorsuche, optional nach Jahrgang oder Ort gefiltert
 - `fulltext_search(term, year)` – exakte Wortsuche mit Treffern pro Jahrgang und Textstellen
 - `place_register(name)` – alle Schreibformen eines Ortes mit Nennungen, Prüfstatus, Koordinate, Wikidata
-- `compare_years(term)` – Häufigkeit je Jahrgang, absolut und je 100.000 Wörter
+- `compare_years(terms)` – Häufigkeit eines oder mehrerer Wörter je Jahrgang als Tabelle, absolut und je 100.000 Wörter
 
 Beispiel: *„Wie oft werden Reval und Tallinn in den einzelnen Jahrgängen genannt?“* → der Agent ruft
-`place_register` und `compare_years` für beide Namen auf und antwortet mit exakten Zahlen statt Schätzungen.
+`compare_years("Reval, Tallinn")` auf und antwortet mit einer Tabelle exakter Zahlen statt mit Schätzungen.
+
+### Zahlen kommen aus dem Code, nicht aus dem Sprachmodell
+
+Beim Testen zeigte sich, dass ein 8B-Modell korrekte Werkzeugergebnisse falsch zusammenfasst – etwa „Tallinn
+wird nur 1988 und 1991 erwähnt“, obwohl die Tabelle auch 2004 enthielt – oder nach einem Werkzeugfehler Zahlen
+erfindet. Deshalb:
+
+- Werkzeuge liefern Zahlen als fertige Tabellen; der Code hängt sie unverändert an die Antwort (`attach_tables`).
+- Fehlerhafte Argumente des Modells (z. B. Jahrgang `"None"`) werden abgefangen und als klare Meldung zurückgegeben.
+- Der Prompt verbietet Zahlen, die in keinem Werkzeugergebnis stehen; alle Aufrufe sind in der Oberfläche sichtbar.
 
 ## Architektur
 
@@ -90,7 +100,7 @@ Die CI prüft die Manifeste bei jedem Push mit `kubeconform`.
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest                 # 17 Tests, erfundenes Mini-Korpus, ohne Sprachmodell
+.venv/bin/python -m pytest                 # 19 Tests, erfundenes Mini-Korpus, ohne Sprachmodell
 .venv/bin/python -m pytest -m integration  # Ende-zu-Ende mit Ollama und echtem Index
 ```
 

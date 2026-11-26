@@ -32,12 +32,18 @@ def test_place_register_ambiguous_and_unknown(corpus_path):
     assert "Keine Ortsform" in tools.place_register("Atlantis", path=corpus_path)
 
 
-def test_compare_years_normalises(corpus_path):
-    out = tools.compare_years("Reval", path=corpus_path)
+def test_compare_years_table(corpus_path):
+    out = tools.compare_years("Reval, Tallinn", path=corpus_path)
     corpus = tools.load_corpus(corpus_path)
-    words_88 = corpus.words_per_year[1988]
-    assert f"1988: 1 Treffer, {1 / words_88 * 1e5:.1f} je 100.000 Wörter" in out
-    assert "1949: 1 Treffer" in out
+    n88 = corpus.words_per_year[1988]
+    assert "| Jahrgang | Reval (Treffer / je 100.000 Wörter) | Tallinn (Treffer / je 100.000 Wörter) |" in out
+    assert f"| 1988 | 1 / {1 / n88 * 1e5:.1f} | 3 / {3 / n88 * 1e5:.1f} |" in out
+    assert "| Summe | 2 | 3 |" in out
+
+
+def test_split_terms():
+    assert tools.split_terms("Reval und Tallinn") == ["Reval", "Tallinn"]
+    assert tools.split_terms("„Dorpat“; Tartu, Dorpat") == ["Dorpat", "Tartu"]
 
 
 def test_empty_input():
