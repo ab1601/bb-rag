@@ -62,7 +62,7 @@ with gr.Blocks(title="Baltische Briefe – Fragen an das Archiv") as demo:
         mode = gr.Radio(MODES, value=MODES[0], label="Modus")
         year = gr.Dropdown(YEARS, value="alle", label="Jahrgang")
         place = gr.Textbox(label="Ort (optional, z. B. Riga)")
-    gr.ChatInterface(respond, additional_inputs=[mode, year, place],
+    gr.ChatInterface(respond, additional_inputs=[mode, year, place], chatbot=gr.Chatbot(height=720, label="Chat"),
                      examples=[["Wie oft werden Reval und Tallinn in den einzelnen Jahrgängen genannt?", MODES[0], "alle", ""],
                                ["Welche Schreibformen gibt es für Tartu und sind sie georeferenziert?", MODES[0], "alle", ""],
                                ["Was wird über die Jugendtagung auf dem Ludwigstein berichtet?", MODES[0], "1949", ""],
