@@ -90,6 +90,7 @@ jobs:
           labels: |
             org.opencontainers.image.title=bb-rag
             org.opencontainers.image.description=Lokales RAG- und Agentensystem (LlamaIndex, Chroma, Ollama) – ohne Daten
+            org.opencontainers.image.licenses=MIT
       - name: Image bauen und veröffentlichen (amd64 + arm64)
         uses: docker/build-push-action@v6
         with:

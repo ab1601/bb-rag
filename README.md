@@ -213,3 +213,12 @@ nicht geklärt. Deshalb enthält dieses Repository **keine Texte, keine Scans un
   Schreibweise zusammengeführt (*Dorpat*, *Tartu* und *Dorpat/Tartu* sind drei Einträge).
 - Ein 8B-Modell wählt Werkzeuge meist sinnvoll, aber nicht immer; deshalb werden alle Aufrufe angezeigt.
 - Volltextzählung (exakte Zeichenkette) und Registerzählung (NER-Nennungen) können voneinander abweichen.
+
+## Lizenz
+
+Der **Code** steht unter der [MIT-Lizenz](LICENSE).
+
+Ausgenommen sind die Texte, Scans und abgeleiteten Daten der Zeitschrift *Baltische Briefe*: Sie sind
+urheberrechtlich geschützt, **nicht Teil dieses Repositorys** und fallen nicht unter diese Lizenz.
+Das Testkorpus in `tests/fixtures/` ist frei erfunden.
+
