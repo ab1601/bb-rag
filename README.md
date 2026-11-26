@@ -15,7 +15,7 @@ Alles läuft **lokal**: Embeddings, Vektordatenbank und Sprachmodell. Die Texte 
 | Modus | Ablauf | Gut für |
 |---|---|---|
 | **RAG** | Frage → semantische Suche (Chroma) → Llama 3.1 antwortet nur aus den gefundenen Abschnitten, mit Belegen [1], [2] … | inhaltliche Fragen |
-| **Agent** | Llama 3.1 wählt selbst Werkzeuge, ruft sie auf und antwortet mit Belegen; jeder Aufruf wird angezeigt; Rückfragen („Und bei Dorpat?“) beziehen das Gespräch ein | Zählen, Vergleichen, Register, kombinierte Fragen |
+| **Agent** | Llama 3.1 wählt selbst Werkzeuge, ruft sie auf und antwortet mit Belegen; laufende Werkzeugaufrufe und der Antworttext erscheinen live; Rückfragen („Und bei Dorpat?“) beziehen das Gespräch ein | Zählen, Vergleichen, Register, kombinierte Fragen |
 
 Werkzeuge des Agenten (`bb_rag/agent.py`, `bb_rag/tools.py`):
 
@@ -33,9 +33,46 @@ Beim Testen zeigte sich, dass ein 8B-Modell korrekte Werkzeugergebnisse falsch z
 wird nur 1988 und 1991 erwähnt“, obwohl die Tabelle auch 2004 enthielt – oder nach einem Werkzeugfehler Zahlen
 erfindet. Deshalb:
 
-- Werkzeuge liefern Zahlen als fertige Tabellen; der Code hängt sie unverändert an die Antwort (`attach_tables`).
+- Werkzeuge liefern Zahlen als fertige Tabellen mit einer **berechneten Kurzfassung** (Summen, Jahrgänge,
+  Gleichstand); der Code hängt beides unverändert an die Antwort (`attach_tables`).
+- Sätze des Modells, die Vergleiche oder nicht belegte Zahlen zu den verglichenen Wörtern enthalten
+  („Tartu wird häufiger genannt“), werden entfernt; Zahlen, die wörtlich in anderen Werkzeugergebnissen
+  stehen, bleiben erhalten.
 - Fehlerhafte Argumente des Modells (z. B. Jahrgang `"None"`) werden abgefangen und als klare Meldung zurückgegeben.
 - Der Prompt verbietet Zahlen, die in keinem Werkzeugergebnis stehen; alle Aufrufe sind in der Oberfläche sichtbar.
+
+## Schnittstelle (automatisierte Nutzung)
+
+Die Chat-Oberfläche stellt automatisch eine API bereit (Gradio). Andere Programme können den Bot so ohne Browser
+abfragen – zum Beispiel für Stapelverarbeitung oder Tests:
+
+```python
+from gradio_client import Client
+
+bot = Client("http://127.0.0.1:7860/")
+antwort = bot.predict(
+    "Wie oft werden Reval und Tallinn in den einzelnen Jahrgängen genannt?",
+    "Agent (mit Werkzeugen)",   # oder "RAG (semantische Suche)"
+    "alle",                     # Jahrgang: alle, 1949, 1950, 1988, 1991, 2004
+    "",                         # Ort (optional)
+    api_name="/respond",
+)
+print(antwort)
+```
+
+Ohne Oberfläche, direkt in Python:
+
+```python
+from bb_rag.agent import ask, stream
+
+result = ask("Welche Schreibformen gibt es für Tartu?")
+print(result.text)                  # Antwort
+for name, args, output in result.steps:
+    print(name, args)               # aufgerufene Werkzeuge
+
+# Live: Ereignisse tool_call → tool_result → delta (Text) → done
+# async for event in stream("Und wie ist es bei Dorpat?", history=[...]): ...
+```
 
 ## Architektur
 
@@ -110,7 +147,7 @@ Die CI prüft die Manifeste bei jedem Push mit `kubeconform`.
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest                 # 19 Tests, erfundenes Mini-Korpus, ohne Sprachmodell
+.venv/bin/python -m pytest                 # 21 Tests, erfundenes Mini-Korpus, ohne Sprachmodell
 .venv/bin/python -m pytest -m integration  # Ende-zu-Ende mit Ollama und echtem Index
 ```
 
