@@ -60,3 +60,24 @@ def test_tables_from_tools_are_attached_once():
     text = attach_tables("Die Tabelle zeigt die Treffer.", steps)
     assert text.count("| 1949 | 19 / 38.8 |") == 1
     assert attach_tables("Antwort ohne Werkzeugtabelle.", [("place_register", {}, "- Reval: 118")]) == "Antwort ohne Werkzeugtabelle."
+
+
+def test_model_comparisons_are_replaced_by_computed_summary():
+    from bb_rag import tools
+    from bb_rag.agent import attach_tables
+    out = tools.compare_years("Reval, Tallinn", path="tests/fixtures/mini_corpus.json")
+    steps = [("place_register", {"name": "Reval"}, "2 Ortsform(en) mit „Reval“"), ("compare_years", {"terms": "Reval, Tallinn"}, out)]
+    model = "Es gibt 2 Formen von Reval. Tallinn wird häufiger genannt als Reval. Reval erscheint 7 Mal. Die Daten sind ungeprüft."
+    text = attach_tables(model, steps)
+    assert "Es gibt 2 Formen von Reval." in text          # Zahl steht im Ortsregister → bleibt
+    assert "häufiger" not in text and "7 Mal" not in text  # Vergleich bzw. erfundene Zahl → entfernt
+    assert "Die Daten sind ungeprüft." in text
+    assert "Kurzfassung (berechnet):" in text and "„Tallinn“ liegt vor „Reval“ in: 1988." in text
+
+
+def test_summarize_counts():
+    from collections import Counter
+    from bb_rag.tools import summarize_counts
+    s = summarize_counts({"A": Counter({1: 2, 2: 1}), "B": Counter({2: 1, 3: 5})}, [1, 2, 3])
+    assert s == ("Insgesamt „A“ 3, „B“ 6 Treffer. „A“ erscheint nur 1, 2. „B“ erscheint nur 2, 3. "
+                 "„B“ liegt vor „A“ in: 3. Gleichstand: 2.")

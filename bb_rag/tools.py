@@ -92,7 +92,8 @@ def place_register(name: str, max_forms: int = 8, path: str | None = None) -> st
     corpus = load_corpus(path)
     needle = name.casefold()
     forms = [p for p in corpus.places if needle in p["name"].casefold()]
-    forms.sort(key=lambda p: (p["name"].casefold() != needle, -sum(corpus.place_mentions.get(p["name"], Counter()).values())))
+    # streng nach Häufigkeit sortiert – sonst schließt ein Sprachmodell aus der Reihenfolge auf die Häufigkeit
+    forms.sort(key=lambda p: (-sum(corpus.place_mentions.get(p["name"], Counter()).values()), p["name"]))
     if not forms:
         return f"Keine Ortsform mit „{name}“ im Register."
     lines = []
@@ -107,7 +108,7 @@ def place_register(name: str, max_forms: int = 8, path: str | None = None) -> st
                      f"{STATUS_DE.get(p.get('status'), p.get('status'))}; Koordinate: {coord}"
                      + (f"; Wikidata {wd}" if wd else "") + (f" ({desc})" if desc else ""))
     more = f"\n… und {len(forms) - max_forms} weitere Formen." if len(forms) > max_forms else ""
-    return (f"{len(forms)} Ortsform(en) mit „{name}“. Formen werden nur bei identischer Schreibweise "
+    return (f"{len(forms)} Ortsform(en) mit „{name}“, nach Nennungen absteigend sortiert. Formen werden nur bei identischer Schreibweise "
             f"zusammengeführt; Zuordnungen sind automatisch und ungeprüft.\n" + "\n".join(lines) + more)
 
 
@@ -136,5 +137,33 @@ def compare_years(terms: str, path: str | None = None) -> str:
         cells = [f"{counts[w][y]} / {counts[w][y] / n * 1e5:.1f}" if n else "0 / 0.0" for w in words]
         lines.append(f"| {y} | " + " | ".join(cells) + " |")
     lines.append("| Summe | " + " | ".join(str(sum(counts[w].values())) for w in words) + " |")
+    lines.append("")
+    lines.append("Kurzfassung (berechnet): " + summarize_counts(counts, sorted(corpus.words_per_year)))
     return ("Jahrgangsvergleich (exakte Schreibweise im Volltext, auch in Doppelformen wie Reval/Tallinn). "
-            "Diese Tabelle unverändert in die Antwort übernehmen:\n" + "\n".join(lines))
+            "Die Tabelle wird automatisch unter deine Antwort gesetzt. Schreibe selbst keine Zahlen daraus ab, "
+            "sondern nur einen kurzen einleitenden Satz:\n" + "\n".join(lines))
+
+
+def summarize_counts(counts: dict[str, Counter], years: list[int]) -> str:
+    """Deterministische Kurzfassung eines Jahrgangsvergleichs – Aussagen, die ein Modell oft falsch formuliert."""
+    words = list(counts)
+    parts = ["Insgesamt " + ", ".join(f"„{w}“ {sum(counts[w].values())}" for w in words) + " Treffer."]
+    for w in words:
+        present = [y for y in years if counts[w][y]]
+        if not present:
+            parts.append(f"„{w}“ kommt nicht vor.")
+        elif len(present) == len(years):
+            parts.append(f"„{w}“ erscheint in allen {len(years)} Jahrgängen.")
+        else:
+            parts.append(f"„{w}“ erscheint nur {', '.join(map(str, present))}.")
+    if len(words) == 2:
+        a, b = words
+        more_b = [y for y in years if counts[b][y] > counts[a][y]]
+        equal = [y for y in years if counts[b][y] == counts[a][y] and counts[a][y]]
+        if more_b:
+            parts.append(f"„{b}“ liegt vor „{a}“ in: {', '.join(map(str, more_b))}.")
+        else:
+            parts.append(f"„{b}“ liegt in keinem Jahrgang vor „{a}“.")
+        if equal:
+            parts.append(f"Gleichstand: {', '.join(map(str, equal))}.")
+    return " ".join(parts)

@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import asyncio
 import re
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 
-from llama_index.core.agent.workflow import FunctionAgent, ToolCallResult
+from llama_index.core.agent.workflow import AgentStream, FunctionAgent, ToolCall, ToolCallResult
 from llama_index.core.llms import ChatMessage
 from llama_index.core.tools import FunctionTool
 from llama_index.llms.ollama import Ollama
@@ -29,8 +30,9 @@ SYSTEM = (
     "Weise darauf hin, dass Texte aus OCR stammen und Orte automatisch, ungeprüft zugeordnet sind. "
     "Bei Rückfragen („und bei …?“) beziehe dich auf das bisherige Gespräch und nutze erneut die Werkzeuge. "
     "Bei Vergleichen mehrerer Wörter rufe compare_years EINMAL mit allen Wörtern auf, z. B. \"Reval, Tallinn\". "
-    "Übernimm Zahlen und Tabellen aus Werkzeugergebnissen wörtlich, Jahr für Jahr; fasse sie nicht frei zusammen "
-    "und behaupte nichts, was der Tabelle widerspricht. Nenne Zahlen nur, wenn sie in einem Werkzeugergebnis stehen. Meldet ein Werkzeug einen Fehler, "
+    "Tabellen aus compare_years werden automatisch unter deine Antwort gesetzt: Schreibe dann keine Zahlen aus der "
+    "Tabelle ab und rechne nichts aus, sondern leite nur kurz ein. Andere Zahlen nennst du nur wörtlich so, wie sie im "
+    "Werkzeugergebnis stehen, mit der genauen Schreibform (z. B. „Dorpat/Tartu“ ist nicht „Dorpat“). Meldet ein Werkzeug einen Fehler, "
     "rufe es korrigiert erneut auf, statt Zahlen zu schätzen. Lass optionale Parameter weg, wenn sie nicht gebraucht werden."
 )
 
@@ -113,31 +115,75 @@ def history_messages(history: list[tuple[str, str]] | None) -> list[ChatMessage]
     return out
 
 
-async def _run(question: str, history: list[tuple[str, str]] | None = None) -> AgentAnswer:
-    past = history_messages(history)
-    handler = build_agent().run(user_msg=question, chat_history=past or None)
+TOOL_LABELS = {"semantic_search": "durchsucht die Texte inhaltlich", "fulltext_search": "sucht im Volltext",
+               "place_register": "schlägt im Ortsregister nach", "compare_years": "vergleicht die Jahrgänge"}
+
+
+async def stream(question: str, history: list[tuple[str, str]] | None = None) -> AsyncIterator[dict]:
+    """Ereignisse während der Bearbeitung, für eine Live-Anzeige:
+
+    {"type": "tool_call", "name", "kwargs"} · {"type": "tool_result", "name", "kwargs", "output"} ·
+    {"type": "delta", "text"} (Antworttext Stück für Stück) · {"type": "done", "answer": AgentAnswer}
+    """
+    handler = build_agent().run(user_msg=question, chat_history=history_messages(history) or None)
     steps = []
     async for event in handler.stream_events():
-        if isinstance(event, ToolCallResult):
+        if isinstance(event, ToolCall) and not isinstance(event, ToolCallResult):
+            yield {"type": "tool_call", "name": event.tool_name, "kwargs": dict(event.tool_kwargs)}
+        elif isinstance(event, ToolCallResult):
             steps.append((event.tool_name, dict(event.tool_kwargs), str(event.tool_output)))
+            yield {"type": "tool_result", "name": event.tool_name, "kwargs": dict(event.tool_kwargs),
+                   "output": str(event.tool_output)}
+        elif isinstance(event, AgentStream) and event.delta:
+            yield {"type": "delta", "text": event.delta}
     response = await handler
-    return AgentAnswer(question, attach_tables(str(response).strip(), steps), steps)
+    yield {"type": "done", "answer": AgentAnswer(question, attach_tables(str(response).strip(), steps), steps)}
+
+
+async def _run(question: str, history: list[tuple[str, str]] | None = None) -> AgentAnswer:
+    async for event in stream(question, history):
+        if event["type"] == "done":
+            return event["answer"]
+    raise RuntimeError("Agent lieferte keine Antwort")
+
+
+COMPARATIVE = re.compile(r"häufiger|häufigst|seltener|öfter|mehr als|weniger als|überwieg|in allen|am meisten|"
+                         r"am häufigsten|doppelt|Mal so|gleich oft", re.IGNORECASE)
+NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
 
 
 def attach_tables(text: str, steps: list[tuple[str, dict, str]]) -> str:
-    """Tabellen aus Werkzeugergebnissen deterministisch an die Antwort hängen.
+    """Tabellen und berechnete Kurzfassungen aus Werkzeugergebnissen deterministisch an die Antwort hängen.
 
-    Kleine Modelle verweisen oft auf „die Tabelle“, ohne sie wiederzugeben, oder geben Zahlen falsch wieder.
-    Die Zahlen sollen deshalb nicht vom Sprachmodell abhängen, sondern direkt aus dem Werkzeug kommen.
+    Kleine Modelle verweisen oft auf „die Tabelle“, ohne sie wiederzugeben, oder deuten Zahlen falsch
+    („Tartu wird häufiger genannt“, obwohl die Tabelle 60 zu 132 für Dorpat zeigt). Deshalb:
+    - Tabelle und Kurzfassung kommen direkt aus dem Werkzeug,
+    - Sätze des Modells, die Zahlen oder Vergleiche zu den verglichenen Wörtern enthalten, werden entfernt.
     """
-    tables = []
-    for _, _, output in steps:
-        table = "\n".join(line for line in output.splitlines() if line.startswith("|"))
-        if table and table not in text and table not in tables:
-            tables.append(table)
-    if not tables:
+    blocks, compared = [], set()
+    for name, kwargs, output in steps:
+        lines = output.splitlines()
+        table = "\n".join(line for line in lines if line.startswith("|"))
+        summary = next((line for line in lines if line.startswith("Kurzfassung (berechnet):")), "")
+        if table and table not in blocks:
+            blocks.append(table + (f"\n\n**{summary.split(':', 1)[0]}:**{summary.split(':', 1)[1]}" if summary else ""))
+        if name == "compare_years":
+            compared.update(t.casefold() for t in tools.split_terms(str(kwargs.get("terms", ""))))
+    if not blocks:
         return text
-    return text + "\n\n" + "\n\n".join(tables) + "\n\n_Zahlen direkt aus dem Werkzeug (Volltext, automatisch erkannt)._"
+    if compared:
+        # Zahlen, die wörtlich in anderen Werkzeugergebnissen stehen (z. B. Ortsregister), dürfen bleiben.
+        allowed = {n for name, _, out in steps if name != "compare_years" for n in NUMBER.findall(out)}
+
+        def doubtful(sentence: str) -> bool:
+            if not any(t in sentence.casefold() for t in compared):
+                return False
+            return bool(COMPARATIVE.search(sentence)) or any(n not in allowed for n in NUMBER.findall(sentence))
+
+        sentences = re.split(r"(?<=[.!?])\s+", text)
+        kept = [x for x in sentences if not doubtful(x)]
+        text = " ".join(kept).strip() or "Hier der Vergleich aus dem Volltext:"
+    return text + "\n\n" + "\n\n".join(blocks) + "\n\n_Zahlen und Kurzfassung direkt aus dem Werkzeug (Volltext, automatisch erkannt)._"
 
 
 def ask(question: str, history: list[tuple[str, str]] | None = None) -> AgentAnswer:

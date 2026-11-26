@@ -20,7 +20,7 @@ def test_fulltext_no_partial_words(corpus_path):
 
 def test_place_register_status_and_coordinates(corpus_path):
     out = tools.place_register("Reval", path=corpus_path)
-    assert out.startswith("2 Ortsform(en)")
+    assert out.startswith("2 Ortsform(en)") and "absteigend sortiert" in out
     first = out.splitlines()[1]
     assert first.startswith("- Reval: 1 Nennungen (1949: 1)")
     assert "59.437, 24.745" in first and "Q1770" in first
@@ -37,6 +37,7 @@ def test_compare_years_table(corpus_path):
     corpus = tools.load_corpus(corpus_path)
     n88 = corpus.words_per_year[1988]
     assert "| Jahrgang | Reval (Treffer / je 100.000 Wörter) | Tallinn (Treffer / je 100.000 Wörter) |" in out
+    assert "keine Zahlen daraus ab" in out
     assert f"| 1988 | 1 / {1 / n88 * 1e5:.1f} | 3 / {3 / n88 * 1e5:.1f} |" in out
     assert "| Summe | 2 | 3 |" in out
 
