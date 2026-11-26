@@ -81,8 +81,16 @@ docker compose run --rm app python -m bb_rag.index
 # → http://127.0.0.1:7860
 ```
 
-Korpus und Index werden als Volumes eingebunden, nicht ins Image kopiert. Auf dem Mac ist die Ollama-App
-schneller als Ollama im Container (keine GPU in Docker): dann `OLLAMA_BASE_URL=http://host.docker.internal:11434`.
+Korpus und Index werden als Volumes eingebunden, nicht ins Image kopiert.
+
+**macOS:** Docker hat keinen Zugriff auf die Apple-GPU. Schneller ist es, die Ollama-App und das bereits
+geladene Embedding-Modell des Mac zu nutzen – dafür gibt es eine eigene Compose-Datei (getestet mit
+Docker Desktop 4.100 auf Apple Silicon):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.mac.yml up -d --build app
+# → http://127.0.0.1:7861
+```
 
 ## Kubernetes
 

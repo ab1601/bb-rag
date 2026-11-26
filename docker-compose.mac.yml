@@ -1,0 +1,16 @@
+# Variante für macOS: Ollama-App und Embedding-Modell vom Mac nutzen (Docker hat keinen GPU-Zugriff).
+#   docker compose -f docker-compose.yml -f docker-compose.mac.yml up app
+#   → http://127.0.0.1:7861
+services:
+  app:
+    depends_on: !reset []
+    ports: !override
+      - "127.0.0.1:7861:7860"
+    environment:
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      HF_HUB_OFFLINE: "1"
+    volumes:
+      - ../baltische-briefe-portal/data:/data:ro
+      - ./storage:/app/storage
+      # Embedding-Modell aus dem LlamaIndex-Cache des Mac (kein erneuter Download)
+      - ${HOME}/Library/Caches/llama_index:/models

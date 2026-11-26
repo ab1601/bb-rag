@@ -20,7 +20,7 @@ def embedding_model() -> HuggingFaceEmbedding:
     return HuggingFaceEmbedding(
         model_name=config.EMBED_MODEL, device=config.EMBED_DEVICE,
         query_instruction=config.QUERY_INSTRUCTION, text_instruction="",
-        embed_batch_size=16,
+        embed_batch_size=16, cache_folder=config.MODEL_CACHE,
     )
 
 

@@ -14,6 +14,8 @@ COLLECTION = "baltische_briefe"
 # Embeddings lokal (sentence-transformers); Qwen3-Embedding ist mehrsprachig und auf Deutsch gut.
 EMBED_MODEL = os.getenv("BB_EMBED_MODEL", "Qwen/Qwen3-Embedding-0.6B")
 EMBED_DEVICE = os.getenv("BB_EMBED_DEVICE", "mps")
+# Ablageort der Embedding-Modelle; ohne Angabe nutzt LlamaIndex seinen Standard-Cache.
+MODEL_CACHE = os.getenv("BB_MODEL_CACHE") or None
 QUERY_INSTRUCTION = ("Instruct: Given a question about the German-language newspaper 'Baltische Briefe' "
                      "(Baltic German diaspora, 1949–2004), retrieve passages that answer it\nQuery: ")
 

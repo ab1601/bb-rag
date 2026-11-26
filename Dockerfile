@@ -8,7 +8,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     BB_EMBED_DEVICE=cpu \
     BB_CORPUS=/data/research-corpus.json \
     BB_STORAGE=/app/storage \
-    HF_HOME=/models
+    HF_HOME=/models \
+    BB_MODEL_CACHE=/models
 
 WORKDIR /app
 COPY requirements.txt .

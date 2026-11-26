@@ -5,6 +5,7 @@ data:
   OLLAMA_BASE_URL: http://ollama:11434
   BB_LLM_MODEL: llama3.1:8b
   BB_EMBED_DEVICE: cpu
+  BB_MODEL_CACHE: /models
   BB_CORPUS: /data/research-corpus.json
   BB_STORAGE: /app/storage
   HF_HUB_OFFLINE: "0"
