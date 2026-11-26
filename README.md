@@ -1,6 +1,6 @@
 # bb-rag – Fragen an die „Baltischen Briefe“
 
-[![CI](https://github.com/ab1601/bb-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/ab1601/bb-rag/actions/workflows/ci.yml)
+[![CI/CD](https://github.com/ab1601/bb-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/ab1601/bb-rag/actions/workflows/ci.yml)
 
 Lokales **RAG- und Agentensystem** über die Zeitschrift *Baltische Briefe* (deutschbaltische Diaspora):
 48 Ausgaben aus den Jahrgängen 1949, 1950, 1988, 1991 und 2004, rund 290.000 Wörter, OCR-Text mit
@@ -119,7 +119,7 @@ research-corpus.json ──► chunking.py ──► index.py ──► Chroma (
 | Vektordatenbank | Chroma, persistent, Kosinus-Ähnlichkeit |
 | Sprachmodell | Llama 3.1 8B (Q4) über Ollama, Temperatur 0 |
 | Oberfläche | Gradio |
-| Tests / CI / Evaluation | pytest, Modellvergleich (`eval/`), GitHub Actions (Tests, Docker-Build, Prüfung der Kubernetes-Manifeste) |
+| Tests / CI/CD / Evaluation | pytest, Modellvergleich (`eval/`), GitHub Actions mit Veröffentlichung in ghcr.io (Tests, Docker-Build, Prüfung der Kubernetes-Manifeste) |
 | Betrieb | Docker, docker compose, Kubernetes mit Kustomize (Deployments, Services, PVCs, Jobs, Overlay) |
 
 ## Start (macOS, lokal)
@@ -172,6 +172,23 @@ kubectl delete namespace bb-rag                       # aufräumen
 
 Getestet mit Docker Desktop 4.100 (Kubernetes 1.36, kubeadm) auf Apple Silicon. Die CI prüft alle Manifeste bei
 jedem Push mit `kubeconform`.
+
+## CI/CD
+
+| Stufe | Job | Was passiert |
+|---|---|---|
+| CI | `test` | 23 Unit-Tests auf einem erfundenen Mini-Korpus (ohne Sprachmodell) |
+| CI | `docker` | Image bauen, Smoke-Test im Container |
+| CI | `kubernetes` | alle Manifeste mit `kubeconform` prüfen |
+| CD | `publish` | nach grüner CI auf `main` bzw. bei Tags `v*`: Image für amd64 und arm64 in die GitHub Container Registry |
+
+Veröffentlichte Images (nur Code, **keine Texte und kein Index** – die werden beim Start eingebunden):
+
+```bash
+docker pull ghcr.io/ab1601/bb-rag:latest      # neuester Stand von main
+docker pull ghcr.io/ab1601/bb-rag:<commit>    # jede geprüfte Version, z. B. :sha-1189182
+docker pull ghcr.io/ab1601/bb-rag:1.0.0       # Release (git tag v1.0.0 && git push --tags)
+```
 
 ## Tests
 
