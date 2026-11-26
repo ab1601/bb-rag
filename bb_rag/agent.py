@@ -137,7 +137,8 @@ async def stream(question: str, history: list[tuple[str, str]] | None = None) ->
         elif isinstance(event, AgentStream) and event.delta:
             yield {"type": "delta", "text": event.delta}
     response = await handler
-    yield {"type": "done", "answer": AgentAnswer(question, attach_tables(str(response).strip(), steps), steps)}
+    text = check_citations(strip_tool_json(str(response).strip()), steps)
+    yield {"type": "done", "answer": AgentAnswer(question, attach_tables(text, steps), steps)}
 
 
 async def _run(question: str, history: list[tuple[str, str]] | None = None) -> AgentAnswer:
@@ -145,6 +146,35 @@ async def _run(question: str, history: list[tuple[str, str]] | None = None) -> A
         if event["type"] == "done":
             return event["answer"]
     raise RuntimeError("Agent lieferte keine Antwort")
+
+
+TOOL_JSON = re.compile(r'\{\s*"name"\s*:\s*"\w+"\s*,\s*"(?:parameters|arguments)"\s*:\s*\{.*?\}\s*\}', re.S)
+CITATION = re.compile(r"\bbb_\d+_\d+(?:#\d+)?\b")
+
+
+def strip_tool_json(text: str) -> str:
+    """Llama 3.1 schreibt manchmal einen Werkzeugaufruf als rohes JSON in den Antworttext – entfernen."""
+    return re.sub(r"\n{3,}", "\n\n", TOOL_JSON.sub("", text)).strip()
+
+
+def check_citations(text: str, steps: list[tuple[str, dict, str]]) -> str:
+    """Belege prüfen: Eine Abschnitts-ID (bb_11_49#013) muss in einem Werkzeugergebnis vorkommen.
+
+    Erfundene Abschnittsnummern werden auf die Ausgabe gekürzt, wenn diese belegt ist (bb_04_49#003 → bb_04_49),
+    sonst als ungeprüft markiert.
+    """
+    sources = "\n".join(out for _, _, out in steps)
+
+    def fix(match: re.Match) -> str:
+        cid = match.group(0)
+        if cid in sources:
+            return cid
+        doc = cid.split("#")[0]
+        if doc in sources:
+            return doc
+        return f"{cid} (Beleg nicht gefunden)"
+
+    return CITATION.sub(fix, text)
 
 
 COMPARATIVE = re.compile(r"häufiger|häufigst|seltener|öfter|mehr als|weniger als|überwieg|in allen|am meisten|"

@@ -81,3 +81,16 @@ def test_summarize_counts():
     s = summarize_counts({"A": Counter({1: 2, 2: 1}), "B": Counter({2: 1, 3: 5})}, [1, 2, 3])
     assert s == ("Insgesamt „A“ 3, „B“ 6 Treffer. „A“ erscheint nur 1, 2. „B“ erscheint nur 2, 3. "
                  "„B“ liegt vor „A“ in: 3. Gleichstand: 2.")
+
+
+def test_citations_are_checked_against_tool_output():
+    from bb_rag.agent import check_citations
+    steps = [("fulltext_search", {}, "- bb_04_49 (1949): …"), ("semantic_search", {}, "[bb_11_49#013] Text")]
+    text = "Siehe bb_11_49#013, bb_04_49#003 und bb_09_88#001."
+    assert check_citations(text, steps) == "Siehe bb_11_49#013, bb_04_49 und bb_09_88#001 (Beleg nicht gefunden)."
+
+
+def test_raw_tool_json_is_removed():
+    from bb_rag.agent import strip_tool_json
+    text = 'Der Jahrgang 1975 fehlt.\n\n{"name": "semantic_search", "parameters": {"query": "Riga", "year": 1988}}'
+    assert strip_tool_json(text) == "Der Jahrgang 1975 fehlt."

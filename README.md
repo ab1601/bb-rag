@@ -74,6 +74,31 @@ for name, args, output in result.steps:
 # async for event in stream("Und wie ist es bei Dorpat?", history=[...]): ...
 ```
 
+## Evaluation: Modellvergleich
+
+`eval/compare_models.py` stellt dem Agenten sechs feste Testfragen (Jahrgangsvergleich, Schreibformen,
+Ortsregister, Inhaltsfrage, ungültiger Jahrgang, Rückfrage im Gespräch) und prüft Werkzeugwahl, Argumente,
+erwartete Belege sowie bekannte Fehlaussagen im **rohen** Modelltext (vor den Schutzmechanismen):
+
+```bash
+BB_LLM_MODEL=llama3.1:8b .venv/bin/python -m eval.compare_models
+BB_LLM_MODEL=qwen2.5:7b  .venv/bin/python -m eval.compare_models
+```
+
+| Modell (Ollama, Q4, Apple M5) | bestanden | Ø Antwortzeit | Beobachtungen beim Lesen der Rohtexte |
+|---|---|---|---|
+| Llama 3.1 8B (Standard) | 6/6 | 9 s | schnell; vereinzelt rohes Werkzeug-JSON im Text und erfundene Abschnittsnummern |
+| Qwen 2.5 7B | 6/6 | 21 s | übernimmt Tabellen selbst, Aufrufe sauber; gut doppelt so langsam |
+
+Entscheidung: Llama 3.1 8B bleibt Standard (Antwortzeit), die beobachteten Fehler fangen Schutzmechanismen ab:
+
+- **Belegprüfung** (`check_citations`): Jede zitierte Abschnitts-ID muss in einem Werkzeugergebnis stehen;
+  erfundene Nummern werden auf die belegte Ausgabe gekürzt (`bb_04_49#003` → `bb_04_49`) oder markiert.
+- **JSON-Bereinigung** (`strip_tool_json`): rohe Werkzeugaufrufe im Antworttext werden entfernt.
+- **Zahlen aus dem Code** (`attach_tables`, siehe oben).
+
+Das Modell lässt sich ohne Codeänderung wechseln: `BB_LLM_MODEL=qwen2.5:7b`.
+
 ## Architektur
 
 ```
@@ -94,7 +119,7 @@ research-corpus.json ──► chunking.py ──► index.py ──► Chroma (
 | Vektordatenbank | Chroma, persistent, Kosinus-Ähnlichkeit |
 | Sprachmodell | Llama 3.1 8B (Q4) über Ollama, Temperatur 0 |
 | Oberfläche | Gradio |
-| Tests / CI | pytest, GitHub Actions (Tests, Docker-Build, Prüfung der Kubernetes-Manifeste) |
+| Tests / CI / Evaluation | pytest, Modellvergleich (`eval/`), GitHub Actions (Tests, Docker-Build, Prüfung der Kubernetes-Manifeste) |
 | Betrieb | Docker, docker compose, Kubernetes (Deployments, Services, PVCs, Jobs) |
 
 ## Start (macOS, lokal)
@@ -147,7 +172,7 @@ Die CI prüft die Manifeste bei jedem Push mit `kubeconform`.
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest                 # 21 Tests, erfundenes Mini-Korpus, ohne Sprachmodell
+.venv/bin/python -m pytest                 # 23 Tests, erfundenes Mini-Korpus, ohne Sprachmodell
 .venv/bin/python -m pytest -m integration  # Ende-zu-Ende mit Ollama und echtem Index
 ```
 
