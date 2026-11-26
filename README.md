@@ -120,7 +120,7 @@ research-corpus.json ──► chunking.py ──► index.py ──► Chroma (
 | Sprachmodell | Llama 3.1 8B (Q4) über Ollama, Temperatur 0 |
 | Oberfläche | Gradio |
 | Tests / CI / Evaluation | pytest, Modellvergleich (`eval/`), GitHub Actions (Tests, Docker-Build, Prüfung der Kubernetes-Manifeste) |
-| Betrieb | Docker, docker compose, Kubernetes (Deployments, Services, PVCs, Jobs) |
+| Betrieb | Docker, docker compose, Kubernetes mit Kustomize (Deployments, Services, PVCs, Jobs, Overlay) |
 
 ## Start (macOS, lokal)
 
@@ -156,18 +156,22 @@ docker compose -f docker-compose.yml -f docker-compose.mac.yml up -d --build app
 
 ## Kubernetes
 
-Manifeste in `k8s/` (Namespace, PersistentVolumeClaims, Deployments und Services für App und Ollama,
-ConfigMap, Readiness- und Liveness-Probes, Jobs für Modell-Download und Indexaufbau). Getestet für ein
-lokales Cluster (Docker Desktop oder kind); den Korpuspfad in `k8s/app.yaml` und `k8s/jobs.yaml` anpassen.
+- `k8s/base/` – Namespace, PersistentVolumeClaims, ConfigMap, Deployments und Services für App und Ollama,
+  Readiness- und Liveness-Probes; `jobs.yaml` lädt das Sprachmodell und baut den Index.
+- `k8s/overlays/docker-desktop/` – Kustomize-Overlay für ein lokales Cluster auf dem Mac: nutzt Ollama-App,
+  Embedding-Modell, Korpus und Index des Mac (Pfade im Overlay anpassen).
 
 ```bash
 docker build -t bb-rag:latest .
-kubectl apply -k k8s/                      # App, Ollama, Speicher
-kubectl apply -f k8s/jobs.yaml             # Llama 3.1 laden, Index bauen
-kubectl -n bb-rag port-forward svc/bb-rag 7860:7860
+kubectl apply -k k8s/overlays/docker-desktop          # lokal (Docker Desktop, getestet)
+# oder: kubectl apply -k k8s/base && kubectl apply -f k8s/base/jobs.yaml   # alles im Cluster
+kubectl -n bb-rag rollout status deploy/bb-rag
+kubectl -n bb-rag port-forward svc/bb-rag 7862:7860   # → http://127.0.0.1:7862
+kubectl delete namespace bb-rag                       # aufräumen
 ```
 
-Die CI prüft die Manifeste bei jedem Push mit `kubeconform`.
+Getestet mit Docker Desktop 4.100 (Kubernetes 1.36, kubeadm) auf Apple Silicon. Die CI prüft alle Manifeste bei
+jedem Push mit `kubeconform`.
 
 ## Tests
 

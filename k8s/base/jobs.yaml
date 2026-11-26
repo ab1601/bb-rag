@@ -1,5 +1,5 @@
 # Einmalige Aufgaben – nicht in kustomization.yaml, sondern einzeln starten:
-#   kubectl apply -f k8s/jobs.yaml
+#   kubectl apply -f k8s/base/jobs.yaml
 apiVersion: batch/v1
 kind: Job
 metadata: {name: pull-llm, namespace: bb-rag}

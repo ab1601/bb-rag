@@ -1,0 +1,36 @@
+# Lokales Cluster in Docker Desktop (macOS): nutzt Ollama-App, Embedding-Modell, Korpus und Index des Mac.
+# Pfade in diesem Ordner anpassen (/PFAD/ZU/…, /HOME), dann:
+#   docker build -t bb-rag:latest .
+#   kubectl apply -k k8s/overlays/docker-desktop
+#   kubectl -n bb-rag port-forward svc/bb-rag 7862:7860     → http://127.0.0.1:7862
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+patches:
+  # Ollama läuft auf dem Mac (GPU), nicht im Cluster
+  - target: {kind: Deployment, name: ollama}
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0
+  - target: {kind: ConfigMap, name: bb-rag-config}
+    patch: |-
+      - op: replace
+        path: /data/OLLAMA_BASE_URL
+        value: http://host.docker.internal:11434
+      - op: replace
+        path: /data/HF_HUB_OFFLINE
+        value: "1"
+  # Korpus, Index und Modell-Cache vom Mac einbinden statt leerer PVCs
+  - target: {kind: Deployment, name: bb-rag}
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/volumes
+        value:
+          - name: corpus
+            hostPath: {path: /PFAD/ZU/baltische-briefe-portal/data, type: Directory}
+          - name: index
+            hostPath: {path: /PFAD/ZU/bb-rag/storage, type: Directory}
+          - name: hf
+            hostPath: {path: /HOME/Library/Caches/llama_index, type: Directory}
